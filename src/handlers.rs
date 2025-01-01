@@ -1,6 +1,7 @@
 use actix_web::{web, HttpResponse, Responder};
 use std::sync::Mutex;
 use rand::seq::SliceRandom;
+use serde::{Serialize};
 
 lazy_static::lazy_static! {
     static ref STATUSES: Mutex<Vec<String>> = Mutex::new(vec![
@@ -10,13 +11,31 @@ lazy_static::lazy_static! {
     ]);
 }
 
+// Define a struct for structured JSON responses
+#[derive(Serialize)]
+struct ApiResponse<T> {
+    status: String,
+    message: String,
+    data: Option<T>,
+}
+
 // Handler to fetch a random Facebook status
 pub async fn get_random_status() -> impl Responder {
     let statuses = STATUSES.lock().unwrap(); // Acquire lock on the statuses
     if let Some(random_status) = statuses.choose(&mut rand::thread_rng()) {
-        HttpResponse::Ok().body(random_status.clone())
+        let response = ApiResponse {
+            status: "success".to_string(),
+            message: "Random status fetched successfully.".to_string(),
+            data: Some(random_status.clone()),
+        };
+        HttpResponse::Ok().json(response) // Return a structured JSON response
     } else {
-        HttpResponse::Ok().body("No statuses available.".to_string())
+        let response = ApiResponse::<String> {
+            status: "error".to_string(),
+            message: "No statuses available.".to_string(),
+            data: None,
+        };
+        HttpResponse::Ok().json(response) // Return a structured JSON response
     }
 }
 
@@ -24,12 +43,24 @@ pub async fn get_random_status() -> impl Responder {
 pub async fn add_status(status: web::Json<String>) -> impl Responder {
     let mut statuses = STATUSES.lock().unwrap(); // Acquire lock on the statuses
     statuses.push(status.into_inner());
-    HttpResponse::Ok().body("Status added successfully!")
+
+    let response = ApiResponse::<()>{ 
+        status: "success".to_string(),
+        message: "Status added successfully!".to_string(),
+        data: None,
+    };
+    HttpResponse::Ok().json(response) // Return a structured JSON response
 }
 
 // Handler to fetch all Facebook statuses
 pub async fn get_all_statuses() -> impl Responder {
     let statuses = STATUSES.lock().unwrap(); // Acquire lock on the statuses
     let all_statuses = statuses.join(", ");
-    HttpResponse::Ok().body(all_statuses)
+
+    let response = ApiResponse {
+        status: "success".to_string(),
+        message: "All statuses fetched successfully.".to_string(),
+        data: Some(all_statuses),
+    };
+    HttpResponse::Ok().json(response) // Return a structured JSON response
 }
